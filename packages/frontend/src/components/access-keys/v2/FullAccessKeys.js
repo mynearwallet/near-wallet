@@ -8,6 +8,8 @@ import styled from 'styled-components';
 
 import Container from '../../common/styled/Container.css';
 import FullAccessKeyRotation from '../../profile/full_access_key_rotations/FullAccessKeyRotation';
+import { useQuery } from 'react-query';
+import { getAccessKeyMeta } from '../../../services/accessKey/api';
 
 const StyledContainer = styled(Container)`
     .authorized-app-box {
@@ -32,9 +34,19 @@ const ed25519PrivateKeyPattern =
 export default ({ fullAccessKeys, accountId }) => {
     const [filterKey, setFilterKey] = React.useState('');
 
+    const fullAccessKeysWithMetadata = useQuery({
+        queryKey: ['fullAccessKeysWithMeta', fullAccessKeys, accountId],
+        queryFn: async () => {
+            return getAccessKeyMeta(fullAccessKeys, accountId);
+        },
+        initialData: fullAccessKeys,
+        initialDataUpdatedAt: 1, // This is to force the initialData to be refetched immediately,
+        enabled: !!fullAccessKeys && !!accountId,
+    });
+
     const filteredFullAccessKeys = React.useMemo(() => {
         if (!filterKey) {
-            return fullAccessKeys;
+            return fullAccessKeysWithMetadata.data;
         }
 
         let inputSecretKey;
@@ -55,8 +67,10 @@ export default ({ fullAccessKeys, accountId }) => {
         const keyPair = nearApiJs.KeyPair.fromString(inputSecretKey);
         const publicKey = keyPair.publicKey.toString();
 
-        return fullAccessKeys.filter((key) => key.public_key === publicKey);
-    }, [filterKey, fullAccessKeys]);
+        return fullAccessKeysWithMetadata.data.filter(
+            (key) => key.public_key === publicKey
+        );
+    }, [filterKey, fullAccessKeysWithMetadata.data]);
 
     return (
         <StyledContainer className='medium centered'>

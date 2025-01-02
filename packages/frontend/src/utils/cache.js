@@ -1,14 +1,37 @@
 export default class Cache {
     static CACHE_DB_NAME = 'Cache';
+    static DB_VERSION = 2;
 
-    constructor(version = 1, storeName = 'unknown', indexName = 'unknown') {
-        this.dbVersion = version;
+    constructor(storeName = 'unknown', indexName = 'unknown') {
         this.dbPromise = null;
         this.storeName = storeName;
         this.indexName = indexName;
     }
 
-    onCreateScheme = Function.prototype;
+    onCreateScheme(db) {
+        if (!db.objectStoreNames.contains('IndexerCache')) {
+            const store = db.createObjectStore('IndexerCache', {
+                keyPath: 'id',
+                autoIncrement: true,
+            });
+
+            store.createIndex('Kind', ['account.id', 'account.kind'], {
+                unique: true,
+            });
+        }
+
+        if (!db.objectStoreNames.contains('AccessKeyCache')) {
+            const store = db.createObjectStore('AccessKeyCache', {
+                keyPath: 'id',
+                autoIncrement: true,
+            });
+
+            store.createIndex('AccountId', 'accountId', {
+                unique: true,
+            });
+        }
+    }
+
     onSuccess = Function.prototype;
 
     _checkDbOpened() {
@@ -17,12 +40,6 @@ export default class Cache {
         }
 
         throw Error('IndexedDB should be opened');
-    }
-
-    _createSchemeDelegate(open) {
-        return () => {
-            this.onCreateScheme(open);
-        };
     }
 
     async getObjectStore(access = 'readwrite') {
@@ -49,8 +66,11 @@ export default class Cache {
 
         this.dbPromise = new Promise((resolve, reject) => {
             try {
-                const open = indexedDB.open(Cache.CACHE_DB_NAME, this.dbVersion);
-                open.onupgradeneeded = this._createSchemeDelegate(open);
+                const open = indexedDB.open(Cache.CACHE_DB_NAME, Cache.DB_VERSION);
+                open.onupgradeneeded = () => {
+                    this.onCreateScheme(open.result);
+                };
+
                 open.onsuccess = () => {
                     this.onSuccess(open.result);
                     resolve(open.result);
