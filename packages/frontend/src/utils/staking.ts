@@ -6,7 +6,8 @@ import { nearTo } from './amounts';
 import { wallet } from './wallet';
 
 import CONFIG from '../config';
-import { CoreIndexerAdapter } from '../services/coreIndexer/CoreIndexerAdapter';
+import { coreIndexerAdapter } from '../services/coreIndexer/CoreIndexerAdapter';
+import { queryClient } from './query/queryClient';
 
 const {
     utils: {
@@ -200,18 +201,19 @@ function getUniqueAccountIdsFromEpochValidatorInfo(
     }
 }
 
-const getRecentEpochValidators = async () => {
-    return await wallet.connection.provider.validators(null);
+export const getRecentEpochValidators = async () => {
+    return await queryClient.fetchQuery({
+        queryKey: ['recent_provider_validators', 'persist'],
+        queryFn: () => wallet.connection.provider.validators(null),
+        staleTime: 1000 * 60 * 60 * 24, // 1 day
+    });
 };
-const getValidatorIdsFromRpc = async (): Promise<string[]> => {
+export const getValidatorIdsFromRpc = async (): Promise<string[]> => {
     const validatorsList = await getRecentEpochValidators();
     return getUniqueAccountIdsFromEpochValidatorInfo(validatorsList);
 };
 
 const getValidatorIdsFromIndexer = async (accountId: string): Promise<string[]> => {
-    const coreIndexerAdapter = CoreIndexerAdapter.getInstance(
-        CONFIG.CURRENT_NEAR_NETWORK
-    );
     return await coreIndexerAdapter.fetchAccountValidatorIds(accountId);
 };
 

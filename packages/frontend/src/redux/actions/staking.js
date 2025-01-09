@@ -31,6 +31,7 @@ import {
     signAndSendTransaction,
     stakingMethods,
     shuffle,
+    getRecentEpochValidators,
 } from '../../utils/staking';
 import { wallet } from '../../utils/wallet';
 import { WalletError } from '../../utils/walletError';
@@ -51,6 +52,7 @@ import {
 } from '../slices/staking';
 import { actions as tokensActions } from '../slices/tokens';
 import { coreIndexerAdapter } from '../../services/coreIndexer/CoreIndexerAdapter';
+import { queryClient } from '../../utils/query/queryClient';
 
 const { fetchToken } = tokensActions;
 
@@ -505,7 +507,7 @@ export const { staking } = createActions({
         ],
         GET_VALIDATORS: async (accountIds, accountId) => {
             const { current_validators, next_validators, current_proposals } =
-                await wallet.connection.provider.validators();
+                await getRecentEpochValidators();
             const currentValidators = shuffle(current_validators).map(
                 ({ account_id }) => account_id
             );
@@ -517,14 +519,18 @@ export const { staking } = createActions({
                 ].map(({ account_id }) => account_id);
 
                 const networkId = CONFIG.CURRENT_NEAR_NETWORK;
-                const allStakingPools = await coreIndexerAdapter.fetchValidatorIds();
+                const accountStakingPools = await queryClient.fetchQuery({
+                    queryKey: ['account_staking_pools', networkId, accountId],
+                    queryFn: () => coreIndexerAdapter.fetchAccountValidatorIds(accountId),
+                    staleTime: Infinity,
+                });
                 const prefix = getValidatorRegExp(networkId);
-                accountIds = uniq([...rpcValidators, ...allStakingPools]).filter(
+                accountIds = uniq([...rpcValidators, ...accountStakingPools]).filter(
                     (v) => v.indexOf('nfvalidator') === -1 && v.match(prefix)
                 );
             }
 
-            const currentAccount = await wallet.getAccount(accountId);
+            const currentAccount = await wallet.getAccountBasic(accountId);
 
             return (
                 await Promise.all(
@@ -540,8 +546,13 @@ export const { staking } = createActions({
                                 active: currentValidators.includes(account_id),
                                 contract,
                             };
-                            const fee = (validator.fee =
-                                await validator.contract.get_reward_fee_fraction());
+                            // const fee = (validator.fee =
+                            //     await validator.contract.get_reward_fee_fraction());
+                            const fee = (validator.fee = {
+                                numerator: 0,
+                                denominator: 1,
+                                percentage: 0,
+                            });
                             fee.percentage = +(
                                 (fee.numerator / fee.denominator) *
                                 100
@@ -686,7 +697,12 @@ export const updateStaking =
         const lockupId = selectStakingLockupAccountId(getState());
 
         if (!selectStakingAllValidatorsLength(getState())) {
-            await dispatch(staking.getValidators(null, accountId));
+            const validators = await queryClient.fetchQuery({
+                queryKey: ['validators', accountId],
+                queryFn: () => staking.getValidators(null, accountId),
+                staleTime: Infinity,
+            });
+            await dispatch(validators);
         }
 
         await dispatch(handleStakingUpdateAccount(recentlyStakedValidators));

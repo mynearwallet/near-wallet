@@ -5,7 +5,7 @@ import '../src/app/index.css';
 import GlobalStyle from '../src/components/GlobalStyle';
 import { setupStore } from '../src';
 import { Provider } from 'react-redux';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 /** @type { import('@storybook/react').Preview } */
 const preview = {

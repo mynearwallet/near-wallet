@@ -136,9 +136,17 @@ export default class Wallet {
     keyStore;
     signer;
     signerIgnoringLedger;
+    static instance;
 
     constructor(rpcInfo = null) {
         this.init(rpcInfo);
+    }
+
+    static get() {
+        if (!Wallet.instance) {
+            Wallet.instance = new Wallet();
+        }
+        return Wallet.instance;
     }
 
     init(rpcInfo = null) {
@@ -1882,4 +1890,4 @@ export default class Wallet {
     }
 }
 
-export const wallet = new Wallet();
+export const wallet = Wallet.get();

@@ -19,7 +19,7 @@ export class RpcProvider extends JsonRpcProvider {
     constructor(
         rpcConfig: string | ConnectionInfo | RpcRotator,
         retryConfig: RpcRetryConfig = {
-            attempt: 5,
+            attempt: 2,
             wait: 100,
             waitExponentialBackoff: 1.1,
         }

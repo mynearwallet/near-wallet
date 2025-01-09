@@ -14,7 +14,10 @@ import { redirectTo } from '../../../redux/actions/account';
 import { claimFarmRewards, getValidatorFarmData } from '../../../redux/actions/staking';
 import { showCustomAlert } from '../../../redux/actions/status';
 import selectNEARAsTokenWithMetadata from '../../../redux/selectors/crossStateSelectors/selectNEARAsTokenWithMetadata';
-import { selectStakingCurrentAccountAccountId } from '../../../redux/slices/staking';
+import {
+    selectStakingCurrentAccountAccountId,
+    selectStakingSlice,
+} from '../../../redux/slices/staking';
 import {
     selectFarmValidatorAPY,
     selectValidatorsFarmData,
@@ -29,6 +32,9 @@ import StakingFarmContracts from '../../../services/StakingFarmContracts';
 import { FARMING_VALIDATOR_VERSION } from '../../../utils/constants';
 import FormButton from '../../common/FormButton';
 import SafeTranslate from '../../SafeTranslate';
+import { useQuery } from '@tanstack/react-query';
+import { Contract } from 'near-api-js';
+import { wallet } from '../../../utils/wallet';
 
 const renderFarmUi = ({
     farmList,
@@ -179,6 +185,25 @@ export default function Validator({
         selectFarmValidatorAPY(state, { validatorId: validator?.accountId })
     );
 
+    const { currentAccount } = useSelector(selectStakingSlice);
+    const validatorFeeQuery = useQuery({
+        queryKey: ['validator_fee', validator?.accountId, currentAccount.id, 'persist'],
+        queryFn: async () => {
+            const account = await wallet.getAccountBasic(currentAccount.id);
+
+            const contract = await new Contract(account, validator?.accountId, {
+                changeMethods: [],
+                viewMethods: ['get_reward_fee_fraction'],
+            });
+            const fee = await contract.get_reward_fee_fraction();
+            return (fee.percentage = +((fee.numerator / fee.denominator) * 100).toFixed(
+                2
+            ));
+        },
+        staleTime: 1000 * 60 * 60 * 24 * 7, // 1 week
+        enabled: currentAccount.id && !!validator?.accountId,
+    });
+
     return (
         <>
             {stakeNotAllowed && (
@@ -207,7 +232,9 @@ export default function Validator({
             >
                 <Translate id='staking.validator.button' />
             </FormButton>
-            {validator && <StakingFee fee={validator.fee.percentage} />}
+            {validator && (
+                <StakingFee fee={validatorFeeQuery.data || validator.fee.percentage} />
+            )}
             {isFarmingValidator && <FarmingAPY apy={farmAPY} />}
             {validator && !stakeNotAllowed && !pendingUpdateStaking && (
                 <>
