@@ -129,7 +129,7 @@ export default class NonFungibleTokens {
             return `${base_uri}/${media}`;
         }
 
-        return `https://cloudflare-ipfs.com/ipfs/${media}`;
+        return `https://ipfs.io/ipfs/${media}`;
     };
 
     static mapTokenMediaUrl = ({ metadata, ...token }, base_uri) => {
