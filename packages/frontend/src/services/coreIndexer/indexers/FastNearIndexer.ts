@@ -6,7 +6,7 @@ import {
 import { ENearNetwork } from '@meteorwallet/meteor-near-sdk/dist/packages/common/core/modules/blockchains/near/core/types/near_basic_types';
 
 export class FastNearIndexer extends AbstractCoreIndexer {
-    networkSupported = [ENearNetwork.mainnet];
+    networkSupported = [ENearNetwork.mainnet, ENearNetwork.testnet];
     priority = 1;
     methodsSupported = [
         E_CoreIndexerAvailableMethods.getAccountIdListFromPublicKey,
@@ -16,7 +16,9 @@ export class FastNearIndexer extends AbstractCoreIndexer {
     ];
 
     protected getBaseUrl(): string {
-        return 'https://api.fastnear.com/v0';
+        return this.network === ENearNetwork.mainnet
+            ? 'https://api.fastnear.com/v0'
+            : 'https://test.api.fastnear.com/v0';
     }
 
     async getAccountFtList(accountId: string): Promise<string[]> {

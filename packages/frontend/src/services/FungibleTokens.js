@@ -10,6 +10,7 @@ import {
 import { getTotalGasFee } from '../utils/gasPrice';
 import { wallet } from '../utils/wallet';
 import { CoreIndexerAdapter } from './coreIndexer/CoreIndexerAdapter';
+import { queryClient } from '../utils/query/queryClient';
 
 const {
     transactions: { functionCall },
@@ -80,7 +81,12 @@ export default class FungibleTokens {
     }
 
     static async getMetadata({ contractName }) {
-        return this.viewFunctionAccount.viewFunction(contractName, 'ft_metadata');
+        return await queryClient.fetchQuery({
+            queryKey: ['getMetadata', contractName],
+            queryFn: () =>
+                this.viewFunctionAccount.viewFunction(contractName, 'ft_metadata'),
+            staleTime: Infinity,
+        });
     }
 
     static async getBalanceOf({ contractName, accountId }) {

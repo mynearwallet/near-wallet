@@ -8,7 +8,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3-near';
 import { LocalizeProvider } from 'react-localize-redux';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 
 import App from './app';
@@ -17,6 +17,7 @@ import createRootReducer from './redux/createReducers';
 import { readyStatePromise } from './redux/middleware';
 import initSentry from './utils/sentry';
 import './translations';
+import { queryClient } from './utils/query/queryClient';
 
 initSentry();
 
@@ -36,7 +37,6 @@ export const setupStore = (preloadedState?: PreloadedState<RootState>) => {
 };
 
 export const store = setupStore({});
-export const queryClient = new QueryClient();
 export type RootState = ReturnType<typeof rootReducer>;
 export type AppDispatch = typeof store.dispatch;
 
@@ -51,13 +51,13 @@ ReactDOM.render(
         useRecaptchaNet={true}
         useEnterprise={true}
     >
-        <Provider store={store}>
-            <LocalizeProvider store={store}>
-                <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={queryClient}>
+            <Provider store={store}>
+                <LocalizeProvider store={store}>
                     <App history={history} />
-                </QueryClientProvider>
-            </LocalizeProvider>
-        </Provider>
+                </LocalizeProvider>
+            </Provider>
+        </QueryClientProvider>
     </GoogleReCaptchaProvider>,
     rootNode
 );

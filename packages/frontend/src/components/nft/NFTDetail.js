@@ -2,7 +2,7 @@ import BN from 'bn.js';
 import React, { useMemo, useState } from 'react';
 import { Translate } from 'react-localize-redux';
 import styled from 'styled-components';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { NFTMedia } from './NFTMedia';
 import NFTTransferModal from './NFTTransferModal';
@@ -177,6 +177,7 @@ export function NFTDetail({ nft, accountId, nearBalance, ownerId, history }) {
             return coreIndexerAdapter.getNftDetailByReference(nft?.metadata?.reference);
         },
         enabled: !!nft?.metadata?.reference,
+        staleTime: 120_000,
     });
 
     const attributes = useMemo(() => {

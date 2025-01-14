@@ -13,6 +13,10 @@ import TokenAmount from '../../common/token/TokenAmount';
 import Tooltip from '../../common/Tooltip';
 import ChevronIcon from '../../svg/ChevronIcon';
 import UserIcon from '../../svg/UserIcon';
+import { selectStakingSlice } from '../../../redux/slices/staking';
+import { useQuery } from '@tanstack/react-query';
+import { wallet } from '../../../utils/wallet';
+import { Contract } from 'near-api-js';
 
 const Container = styled.div`
     display: flex;
@@ -147,7 +151,6 @@ export default function ValidatorBox({
     const isFarmingValidator =
         validator?.version === ValidatorVersion[FARMING_VALIDATOR_VERSION];
 
-    const fee = validator.fee && validator.fee.percentage;
     const cta = amount ? (
         <ChevronIcon />
     ) : (
@@ -159,6 +162,25 @@ export default function ValidatorBox({
             <Translate id='staking.validatorBox.cta' />
         </FormButton>
     );
+
+    const { currentAccount } = useSelector(selectStakingSlice);
+    const validatorFeeQuery = useQuery({
+        queryKey: ['validator_fee', validatorId, currentAccount.id],
+        queryFn: async () => {
+            const account = await wallet.getAccountBasic(currentAccount.id);
+
+            const contract = await new Contract(account, validatorId, {
+                changeMethods: [],
+                viewMethods: ['get_reward_fee_fraction'],
+            });
+            const fee = await contract.get_reward_fee_fraction();
+            return (fee.percentage = +((fee.numerator / fee.denominator) * 100).toFixed(
+                2
+            ));
+        },
+        staleTime: Infinity,
+        enabled: currentAccount.id && !!validatorId && active,
+    });
 
     const handleClick = () => {
         Mixpanel.track('STAKE Go to staked account page');
@@ -197,7 +219,7 @@ export default function ValidatorBox({
                         <Tooltip translate='staking.balanceBox.farm.info' />
                     )}
                 </div>
-                {typeof fee === 'number' && (
+                {!validatorFeeQuery.isLoading && (
                     <div className='text-left'>
                         {isFarmingValidator && (
                             <>
@@ -217,7 +239,8 @@ export default function ValidatorBox({
                             </>
                         )}
                         <span>
-                            {fee}% <Translate id='staking.validatorBox.fee' /> -&nbsp;
+                            {validatorFeeQuery.data}%{' '}
+                            <Translate id='staking.validatorBox.fee' /> -&nbsp;
                         </span>
                         <span>
                             {active ? (
