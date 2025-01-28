@@ -1,24 +1,12 @@
 import Cache from '../../utils/cache';
 
 export class IndexerCache extends Cache {
-    static DB_VERSION = 1;
     static STORE_NAME = 'IndexerCache';
     static INDEX_NAME = 'Kind';
 
     constructor() {
-        super(IndexerCache.DB_VERSION, IndexerCache.STORE_NAME, IndexerCache.INDEX_NAME);
+        super(IndexerCache.STORE_NAME, IndexerCache.INDEX_NAME);
     }
-
-    onCreateScheme = (open) => {
-        const store = open.result.createObjectStore(IndexerCache.STORE_NAME, {
-            keyPath: 'id',
-            autoIncrement: true,
-        });
-
-        store.createIndex(IndexerCache.INDEX_NAME, ['account.id', 'account.kind'], {
-            unique: true,
-        });
-    };
 
     _getRecord(accountId, kind) {
         return new Promise(async (resolve, reject) => {
@@ -34,7 +22,7 @@ export class IndexerCache extends Cache {
     }
 
     _addRecord(accountId, kind, data) {
-        return new Promise(async (resolve) => {
+        return new Promise(async (resolve, reject) => {
             const store = await this.getObjectStore();
 
             const item = {
@@ -47,14 +35,17 @@ export class IndexerCache extends Cache {
 
             const request = store.add(item, IDBCursor.primaryKey);
             request.onsuccess = resolve;
+            request.onerror = reject;
         });
     }
 
     async _updateRecord(accountId, kind, data) {
-        return new Promise(async (resolve) => {
+        return new Promise(async (resolve, reject) => {
             const store = await this.getObjectStore();
 
-            store.openCursor().onsuccess = (event) => {
+            const cursorRequest = store.openCursor();
+
+            cursorRequest.onsuccess = (event) => {
                 const cursor = event.target.result;
 
                 if (cursor) {
@@ -72,6 +63,8 @@ export class IndexerCache extends Cache {
                     }
                 }
             };
+
+            cursorRequest.onerror = reject;
         });
     }
 
