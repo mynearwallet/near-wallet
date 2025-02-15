@@ -98,71 +98,77 @@ const fetchTransactions = createAsyncThunk(
         }
         const { setTransactions, addTransactions } = transactionHistorySlice.actions;
 
-        const indexerTransactions = await listTransactions(accountId, page, PER_PAGE);
-        const transactionsHashs: string[] = uniq(
-            indexerTransactions.txns.map((item) => item.transaction_hash)
-        );
-        const transactionsRaw = await Promise.allSettled(
-            transactionsHashs.map((txHash) => {
-                return getTransactionDetail({ txHash, accountId });
-            })
-        );
-        const transactions = transactionsRaw
-            .map((item) => (item.status === 'fulfilled' ? item.value : null))
-            .filter(Boolean);
+        try {
+            const indexerTransactions = await listTransactions(accountId, page, PER_PAGE);
+            const transactionsHashs: string[] = uniq(
+                indexerTransactions.txns.map((item) => item.transaction_hash)
+            );
+            const transactionsRaw = await Promise.allSettled(
+                transactionsHashs.map((txHash) => {
+                    return getTransactionDetail({ txHash, accountId });
+                })
+            );
+            const transactions = transactionsRaw
+                .map((item) => (item.status === 'fulfilled' ? item.value : null))
+                .filter(Boolean);
 
-        const receipt_ids: string[] = [];
-        for (const t of transactions) {
-            for (const r of t?.receipts || []) {
-                receipt_ids.push(r.receiver_id);
+            const receipt_ids: string[] = [];
+            for (const t of transactions) {
+                for (const r of t?.receipts || []) {
+                    receipt_ids.push(r.receiver_id);
+                }
             }
-        }
-        const metaDatas = await fetchAllMetaData(
-            state,
-            uniq([
-                'x.paras.near',
-                ...receipt_ids,
-                ...transactions
-                    .map((r) => r?.transaction?.receiver_id || '')
-                    .filter((x) => x),
-            ])
-        );
+            const metaDatas = await fetchAllMetaData(
+                state,
+                uniq([
+                    'x.paras.near',
+                    ...receipt_ids,
+                    ...transactions
+                        .map((r) => r?.transaction?.receiver_id || '')
+                        .filter((x) => x),
+                ])
+            );
 
-        const result = transactions
-            .map((item) => {
-                const action = item.transaction.actions[0];
-                const isNear = action.Transfer;
-                const indexerTransaction = indexerTransactions.txns.find(
-                    (t) => t.transaction_hash === item.transaction.hash
-                );
-                const delegateReceiverId =
-                    action.Delegate?.delegate_action.receiver_id || '';
-                return {
-                    ...item,
-                    block_timestamp: indexerTransaction?.block_timestamp,
-                    transaction_hash: item.transaction.hash,
-                    receipts: item.receipts.map((r) => {
-                        const isNear = r.receipt.Action.actions[0]?.Transfer;
-                        const isWNear = r.receiver_id === 'wrap.near';
-                        const defaultMetaData = isWNear
-                            ? wNearMetadata
-                            : metaDatas[r.receiver_id];
-                        return {
-                            ...r,
-                            metaData: isNear
-                                ? nearMetadata
-                                : defaultMetaData || metaDatas[r.predecessor_id],
-                        };
-                    }),
-                    metaData: isNear
-                        ? nearMetadata
-                        : metaDatas[item.transaction?.receiver_id] ||
-                          metaDatas[delegateReceiverId] ||
-                          {},
-                };
-            })
-            .filter(Boolean);
-        dispatch(page <= 1 ? setTransactions(result) : addTransactions(result));
+            const result = transactions
+                .map((item) => {
+                    const action = item.transaction.actions[0];
+                    const isNear = action.Transfer;
+                    const indexerTransaction = indexerTransactions.txns.find(
+                        (t) => t.transaction_hash === item.transaction.hash
+                    );
+                    const delegateReceiverId =
+                        action.Delegate?.delegate_action.receiver_id || '';
+                    return {
+                        ...item,
+                        block_timestamp: indexerTransaction?.block_timestamp,
+                        transaction_hash: item.transaction.hash,
+                        receipts: item.receipts.map((r) => {
+                            const isNear = r.receipt.Action.actions[0]?.Transfer;
+                            const isWNear = r.receiver_id === 'wrap.near';
+                            const defaultMetaData = isWNear
+                                ? wNearMetadata
+                                : metaDatas[r.receiver_id];
+                            return {
+                                ...r,
+                                metaData: isNear
+                                    ? nearMetadata
+                                    : defaultMetaData || metaDatas[r.predecessor_id],
+                            };
+                        }),
+                        metaData: isNear
+                            ? nearMetadata
+                            : metaDatas[item.transaction?.receiver_id] ||
+                              metaDatas[delegateReceiverId] ||
+                              {},
+                    };
+                })
+                .filter(Boolean);
+            dispatch(page <= 1 ? setTransactions(result) : addTransactions(result));
+            return result;
+        } catch (err) {
+            dispatch(addTransactions([]));
+            return;
+        }
     }
 );
 

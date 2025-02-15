@@ -12,32 +12,31 @@ import {
     transactionHistorySelector,
 } from '../../redux/slices/transactionHistory';
 import styled from 'styled-components';
+import { AppDispatch } from '../..';
 
 const TransactionHistory = () => {
-    const dispatch = useDispatch();
+    const dispatch: AppDispatch = useDispatch();
     const accountId = useSelector(selectAccountId);
     const { transactions, isLoading, hasMore } = useSelector(transactionHistorySelector);
     const [page, setPage] = useState(0);
-
-    if (!transactions) {
-        return null;
-    }
-
-    function loadMore() {
-        if (accountId && !isLoading) {
-            // @ts-ignore:next-line
-            dispatch(transactionHistoryActions.fetchTransactions({ accountId, page }));
-            setPage((p) => p + 1);
-        }
-    }
 
     // reset on change account
     useEffect(() => {
         setPage(0);
         dispatch(transactionHistoryActions.setTransactions([]));
-        // @ts-ignore:next-line
         dispatch(transactionHistoryActions.fetchTransactions({ accountId, page: 1 }));
     }, [accountId]);
+
+    if (!transactions) {
+        return null;
+    }
+
+    async function loadMore() {
+        if (accountId && !isLoading) {
+            dispatch(transactionHistoryActions.fetchTransactions({ accountId, page }));
+            setPage((p) => p + 1);
+        }
+    }
 
     return (
         <Container>
@@ -45,18 +44,16 @@ const TransactionHistory = () => {
                 <h2 className='page-title'>
                     <Translate id='dashboard.activity' />
                 </h2>
-                <InfiniteScroll
-                    pageStart={0}
-                    loadMore={loadMore}
-                    hasMore={hasMore}
-                    loader={
-                        <div className='loader' key={0}>
-                            <Translate id='loading' />
-                        </div>
-                    }
-                >
+                <InfiniteScroll pageStart={0} loadMore={loadMore} hasMore={hasMore}>
                     <GroupedTransactions transactions={transactions} />
                 </InfiniteScroll>
+                {isLoading ? (
+                    <div className='loader text-center' key={0}>
+                        <Translate id='loading' />
+                    </div>
+                ) : (
+                    <StyledLoadMore onClick={loadMore}>Load More</StyledLoadMore>
+                )}
                 <TransactionItemModal />
             </StyledContainer>
         </Container>
@@ -71,4 +68,11 @@ const StyledContainer = styled.div`
         font-weight: bold;
         color: #555;
     }
+`;
+
+const StyledLoadMore = styled.div`
+    text-align: center;
+    text-decoration: underline;
+    cursor: pointer;
+    color: var(--mnw-color-1);
 `;
